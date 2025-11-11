@@ -79,3 +79,125 @@ Contoh penggunaan BuildContext di method build() di aplikasi ini ada di bagian m
 ### Apa Itu Hot Reload di Flutter dan Bagaimana Bedanya Dengan Hot Restart
 * Hot Reload: memuat perubahan kode ke VM, membuat widget tree baru, tapi tetap memertahankan state aplikasi (tidak menjalankan ulang main() atau initState()). Bisa dilakukan dengan menekan Ctrl + F5
 * Hot Restart: memuat perubahan kode ke VM dan me-restart aplikasi Flutter, sehingga state aplikasi hilang. Bisa dilakukan dengan menekan Ctrl + Shift + F5
+
+---
+
+# Tugas 8
+
+## 🔄 Perbedaan Navigator.push() vs Navigator.pushReplacement()
+
+Dalam Flutter, `Navigator` mengelola tumpukan (stack) halaman. Perbedaan utama antara kedua metode ini terletak pada bagaimana mereka berinteraksi dengan stack tersebut:
+
+1. **`Navigator.push()`**
+
+   * **Apa yang dilakukan:** Menambahkan (mendorong) halaman baru ke *atas* tumpukan halaman. Halaman sebelumnya tetap tersimpan di bawahnya.
+   * **Implikasi:** Pengguna masih bisa menekan tombol "kembali" (baik secara fisik maupun melalui `AppBar`) untuk kembali ke halaman sebelumnya.
+   * **Kapan digunakan di Syball Shop:**
+     Metode ini digunakan di `lib/product_card.dart` ketika pengguna menekan tombol **"Tambah Produk"** atau **"Lihat Produk"** pada halaman utama (`menu.dart`).
+     Ini memungkinkan pengguna untuk kembali ke halaman utama setelah selesai mengisi form atau melihat daftar produk.
+
+2. **`Navigator.pushReplacement()`**
+
+   * **Apa yang dilakukan:** Mengganti halaman saat ini dengan halaman baru di tumpukan navigasi.
+   * **Implikasi:** Halaman sebelumnya dihapus dari tumpukan, sehingga pengguna tidak dapat kembali ke sana dengan tombol "back".
+   * **Kapan digunakan di Syball Shop:**
+     Metode ini digunakan di `lib/left_drawer.dart`.
+     Saat pengguna menavigasi melalui *drawer* (misalnya dari "Halaman Utama" ke "Tambah Produk"), kita tidak ingin menumpuk banyak halaman navigasi.
+     Dengan `pushReplacement`, navigasi menjadi lebih bersih dan logis untuk struktur menu samping.
+
+---
+
+## 🏗️ Pemanfaatan Hierarki Widget (Scaffold, Padding, SingleChildScrollView, ListView)
+
+Hierarki widget di aplikasi **Syball Shop** dirancang agar konsisten dan responsif di seluruh halaman:
+
+* **`Scaffold`**
+  Berfungsi sebagai struktur dasar setiap halaman (`menu.dart`, `product_form.dart`, `product_list.dart`).
+  Menyediakan slot untuk `AppBar`, `Body`, dan `Drawer`.
+
+* **`AppBar`**
+  Digunakan di setiap halaman untuk menampilkan judul halaman dengan warna tema biru dan teks putih.
+  Tombol hamburger (`Drawer Icon`) otomatis muncul bila halaman memiliki `Drawer`.
+
+* **`Drawer`**
+  Ditempatkan di setiap halaman menggunakan widget `LeftDrawer`.
+  Ini memastikan pengguna bisa berpindah antarhalaman (Home, Tambah Produk, Daftar Produk) dari mana saja dengan tampilan menu yang konsisten.
+
+* **`Padding`**
+  Memberikan jarak antar elemen agar tampilan tidak saling menempel.
+  Di `lib/product_form.dart`, setiap `TextFormField` dibungkus dalam `Padding(padding: const EdgeInsets.all(8.0))`.
+
+* **`SingleChildScrollView`**
+  Membungkus keseluruhan form di halaman `product_form.dart`.
+  Hal ini mencegah error *overflow* ketika konten form lebih tinggi dari layar atau saat keyboard muncul.
+
+* **`ListView`**
+  Digunakan di `lib/left_drawer.dart` untuk menyusun menu navigasi (`DrawerHeader`, `ListTile`) secara vertikal dan dapat di-*scroll* bila konten melebihi tinggi layar.
+
+---
+
+## 🎨 Kelebihan Layout Widget pada Form Produk
+
+Struktur layout di `product_form.dart` memanfaatkan kombinasi `Column`, `Padding`, dan `SingleChildScrollView` untuk menciptakan tampilan form yang rapi, adaptif, dan tidak mudah rusak pada berbagai ukuran layar.
+
+* **`Padding`**
+
+  * **Kelebihan:** Menjaga keterbacaan dan estetika dengan memberi ruang antar elemen form.
+  * **Contoh:** Setiap `TextFormField` dibungkus `Padding(padding: const EdgeInsets.all(8.0))`.
+
+* **`SingleChildScrollView`**
+
+  * **Kelebihan:** Menghindari *overflow* saat keyboard muncul, karena seluruh form bisa digulir.
+  * **Contoh:** Digunakan untuk membungkus seluruh `Column` yang berisi form input di `ProductFormPage`.
+
+* **`SwitchListTile`**
+
+  * **Kelebihan:** Memberikan interaksi boolean dengan tampilan yang mudah dimengerti pengguna.
+  * **Contoh:** Digunakan untuk menandai apakah produk adalah **produk unggulan** atau bukan.
+
+---
+
+## 🖌️ Penyesuaian Warna Tema untuk Identitas Visual
+
+Warna tema biru pada **Syball Shop** digunakan secara konsisten untuk memperkuat identitas visual aplikasi.
+
+1. **Definisi Tema:**
+   Diatur di `lib/main.dart` menggunakan:
+
+   ```dart
+   theme: ThemeData(
+     colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blue),
+   )
+   ```
+2. **Penggunaan Konsisten:**
+   Semua halaman (`menu.dart`, `product_form.dart`, `product_list.dart`) menggunakan warna utama dengan:
+
+   ```dart
+   Theme.of(context).colorScheme.primary
+   ```
+3. **Keuntungan:**
+   Jika aplikasi di-*rebrand* (misalnya warna utama diganti menjadi hijau), cukup ubah satu baris warna di `main.dart`.
+   Seluruh komponen aplikasi (AppBar, tombol, dll.) akan otomatis menyesuaikan.
+
+---
+
+## 🧩 Fitur yang Telah Diimplementasikan
+
+✅ Halaman Utama (`menu.dart`) dengan identitas mahasiswa dan 3 tombol utama
+✅ Drawer navigasi (`left_drawer.dart`) untuk berpindah antarhalaman
+✅ Form Tambah Produk (`product_form.dart`) dengan validasi lengkap:
+
+* Nama produk (tidak boleh kosong)
+* Harga produk (harus angka dan positif)
+* Deskripsi produk
+* Dropdown kategori
+* URL thumbnail opsional
+* Switch produk unggulan
+  ✅ Dialog konfirmasi sukses menyimpan data
+  ✅ Warna tema konsisten (biru) sesuai panduan
+
+---
+
+## ✨ Credit
+
+Dibuat oleh **Wildan Muhamad Hafidz - 2406495962 - PBP D**
