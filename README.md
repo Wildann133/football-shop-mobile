@@ -198,6 +198,173 @@ Warna tema biru pada **Syball Shop** digunakan secara konsisten untuk memperkuat
 
 ---
 
+# 📘 **Tugas 9**
+
+## 1. Mengapa kita perlu membuat model Dart saat mengambil/mengirim data JSON?
+
+Membuat model Dart sangat penting untuk menjaga **konsistensi tipe data**, **keamanan null-safety**, dan **kemudahan maintainability**.
+Jika kita langsung memetakan JSON ke `Map<String, dynamic>`, kita kehilangan:
+
+* **Validasi tipe** → Flutter tidak tahu apakah `price` itu int, string, atau null.
+* **Null-safety** → bisa menyebabkan runtime error seperti *NoSuchMethodError* ketika akses field yang ternyata null.
+* **Maintainability** → sulit mencari error, sulit refactor, dan rawan typo key JSON.
+* **IDE Assistance hilang** → tidak ada autocomplete untuk field.
+
+Dengan model, JSON otomatis di-*parse* menjadi objek kuat tipe (`ShopEntry`), sehingga lebih aman dan mudah digunakan.
+
+---
+
+## 2. Apa fungsi package `http` dan `CookieRequest` dalam tugas ini?
+
+**http** → package standar Flutter untuk mengirim request HTTP *tanpa menyimpan cookie*. Biasanya dipakai untuk request API publik atau tanpa login.
+
+**CookieRequest** (dari `pbp_django_auth`) → request HTTP yang **otomatis menyimpan cookie**, termasuk session Django.
+Perbedaannya:
+
+| Fitur                  | http    | CookieRequest |
+| ---------------------- | ------- | ------------- |
+| Menyimpan cookie       | ❌ Tidak | ✅ Ya          |
+| Mendukung login Django | ❌ Tidak | ✅ Ya          |
+| Otomatis kirim session | ❌ Tidak | ✅ Ya          |
+| Cocok untuk tugas PBP  | ❌ Tidak | ⭐ YA          |
+
+Jadi dalam tugas 9, kita *wajib* menggunakan `CookieRequest` supaya login Django dapat dipertahankan di seluruh request.
+
+---
+
+## 3. Mengapa instance `CookieRequest` perlu dibagikan ke semua komponen?
+
+Karena **session login** disimpan di dalam instance `CookieRequest`.
+Jika setiap halaman membuat instance baru, maka:
+
+* login tidak tersimpan
+* request ke Django tidak membawa cookie
+* endpoint yang butuh autentikasi akan gagal
+
+Dengan membagikannya via `Provider`, seluruh halaman Flutter memiliki akses ke **cookie yang sama**, sehingga pengguna tetap login dan dapat mengakses endpoint seperti `/json/` atau `/create-flutter/`.
+
+---
+
+## 4. Jelaskan konfigurasi konektivitas antara Flutter dan Django
+
+Agar Flutter (khususnya di Android / Web) bisa mengakses Django lokal, kita harus melakukan konfigurasi berikut:
+
+### **a. Menambah `10.0.2.2` ke ALLOWED_HOSTS**
+
+Karena emulator Android mengakses host lokal lewat `10.0.2.2`, bukan `127.0.0.1`.
+Tanpa ini → Django akan menolak request karena dianggap tidak aman.
+
+### **b. Mengaktifkan CORS & SameSite Cookie**
+
+* CORS memastikan Flutter Web boleh mengakses backend.
+* SameSite cookie harus diset `None` supaya cookie bisa terkirim pada cross-site request.
+* Tanpa ini login tidak akan tersimpan.
+
+### **c. Mengizinkan akses internet Android**
+
+Di `AndroidManifest.xml` harus ada:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+Tanpa ini, seluruh request akan gagal (statusCode 0).
+
+### **Apa yang terjadi jika salah satu konfigurasi tidak dilakukan?**
+
+* Cookie tidak terkirim
+* Login gagal / session tidak tersimpan
+* Flutter tidak bisa fetch JSON → loading spinner terus
+* Error CORS pada Flutter Web
+* Error `statusCode: 0` pada emulator Android
+
+---
+
+## 5. Jelaskan mekanisme pengiriman data dari input Flutter hingga tampil di Flutter
+
+Alurnya:
+
+1. **User mengisi form** (nama, harga, kategori, dst.)
+2. Flutter kirim data ke Django menggunakan:
+
+   ```dart
+   request.postJson("http://127.0.0.1:8000/create-flutter/", jsonEncode({...}))
+   ```
+3. Django menerima request, memvalidasi data, lalu membuat objek `Shop`.
+4. Django mengirimkan JSON response `{ status: "success", id: ... }`.
+5. Flutter menerima response → menampilkan snackbar “Produk berhasil ditambahkan”.
+6. Flutter membuat request GET ke `/json/`.
+7. Django mengirimkan daftar produk dalam JSON.
+8. Flutter mem-parse JSON ke model Dart (`ShopEntry.fromJson`).
+9. Flutter menampilkan daftar produk (ListView + card).
+
+---
+
+## 6. Jelaskan mekanisme autentikasi login-register-logout
+
+### **Register**
+
+1. Flutter mengirim data:
+
+   ```json
+   {"username": "...", "password1": "...", "password2": "..."}
+   ```
+2. Django memvalidasi → membuat akun → kirim JSON hasil.
+
+### **Login**
+
+1. Flutter mengirim username & password lewat `request.login()`.
+2. Django menggunakan `authenticate()` dan `login()`.
+3. Django mengirim cookie session.
+4. CookieRequest menyimpan session → seluruh halaman “terautentikasi”.
+
+### **Akses halaman lain**
+
+Semua request GET/POST berikutnya mengirim session cookie otomatis.
+Django tahu usernya siapa.
+
+### **Logout**
+
+Flutter mengirim POST → Django menjalankan `logout()` → session dihapus.
+
+---
+
+## 7. Implementasi checklist (step-by-step)
+
+Secara singkat, implementasi dilakukan sebagai berikut:
+
+1. **Menambahkan dependency Flutter**
+
+   * `provider`
+   * `pbp_django_auth`
+
+2. **Mengaktifkan Internet Permission** (Android) dan CORS (Django)
+
+3. **Menambah Provider untuk CookieRequest**
+
+   ```dart
+   return Provider(
+     create: (_) => CookieRequest(),
+     child: MaterialApp(...),
+   );
+   ```
+
+4. **Membuat halaman login** menggunakan `request.login()`.
+
+5. **Membuat halaman register** menggunakan `request.postJson()`.
+
+6. **Membuat model Dart** (`ShopEntry`) untuk konversi JSON.
+
+7. **Mengambil data dari Django** lewat `request.get("/json/")`.
+
+8. **Membuat halaman daftar produk** menggunakan `FutureBuilder`.
+
+9. **Membuat form tambah produk** dan mengirim data ke Django.
+
+10. **Menghubungkan seluruh halaman dengan LeftDrawer**.
+
+---
+
 ## ✨ Credit
 
 Dibuat oleh **Wildan Muhamad Hafidz - 2406495962 - PBP D**
